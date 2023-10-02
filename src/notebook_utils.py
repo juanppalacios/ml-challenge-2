@@ -28,6 +28,34 @@ def info(message : str) -> None:
 '''
     data processing
 '''
+def gradient_descent(a, b, max_iterations = 1000, min_tolerance = 1e-9):
+    
+    x = np.zeros(len(b))
+    # debug()
+    
+    #>  x   <- 0
+    #>  for i in range(0, max_iterations):
+    #>      tol <- 0
+    #>      for i in range(0, b'length):
+    #>          beta <- b[i] / a[i][j]
+    #>          x[i] <- x[i] + beta
+    #>          b    <- b - beta * a[i][j]
+    #>          tol  <- tol + abs(beta / x[i])
+    #>      if tol < min_tolerance: break
+
+def create_matrix(width, height):
+
+    data = np.zeros((width, height), dtype = float)
+
+    matrix = {
+        'data'   : data,
+        'height' : data.shape[0],
+        'width'  : data.shape[1],
+        'number of columns' : range(data.shape[0]),
+        'number of rows'    : range(data.shape[1]),
+    }
+
+    return matrix
 
 
 '''
