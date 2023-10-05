@@ -1,22 +1,11 @@
-import time
-import logging
 import csv
+import logging
 import numpy as np
-
 from itertools import product
-from rich.progress import track
 
-from numba import jit, cuda
-
-# note: added this to suppress numba deprecation warnings
-import sys
-if not sys.warnoptions:
-    import warnings
-    warnings.simplefilter("ignore")
-
-# todo:
-#> 1. implement cross-validation (monte-carlo)
-#> 1. implement SVD, NMF, Linear Regression
+# todo: most of these notes are in Lecture 4 Notes
+#> 1. implement cross-validation (Wold's works for NMF)
+#> 1. implement SVD, NMF, gradient_descent
 #> 1. implement pre-processing
 
 '''
@@ -82,7 +71,7 @@ def preprocess(method, data):
         error_out(f'\"{method}\" method not recognized!')
 
 # @jit(target_backend='cuda')
-def linear_solve(A0, y0, A1):
+def linear_regression(A0, y0, A1):
     debug(f'implementing linear regression solver...')
 
     a = A0["data"] @ A0["data"].T
@@ -96,6 +85,14 @@ def linear_solve(A0, y0, A1):
     debug(f'{A0["data"].T.shape} x {x.shape} -> {y0["data"].T.shape} with length {len(y0["data"][0])}')
     debug(f'{A1["data"].T.shape} x {x.shape} -> {y1["data"].T.shape} with length {len(y1["data"][0])}')
 
+    return y1
+
+def gradient_descent(A0, y0, A1):
+    y1 = create_matrix(y0['height'], A1['width'])
+    return y1
+
+def nmf(A0, y0, A1):
+    y1 = create_matrix(y0['height'], A1['width'])
     return y1
 
 '''
@@ -139,9 +136,6 @@ def write_output(path, data):
 
 class Model():
     def __init__(self):
-        '''
-            source: https://saturncloud.io/blog/what-is-valueerror-shapes-not-aligned-on-scikit-linear-regression-and-how-to-solve-it/
-        '''
         self.debug_mode = False
 
         self.test_cases = []
@@ -151,8 +145,6 @@ class Model():
         self.y_train = None
         self.x_test  = None
         self.y_test  = None  # note: we return this in our predict method
-
-        self.relation = None # note: this is our `x` vector in Ax = y for all columns in A
 
     def configure(self, debug_mode = False, test_cases = []):
         self.debug_mode = debug_mode
@@ -208,6 +200,15 @@ class Model():
         # todo: Wold's method of cross-validation or just regular validation?
         return 1.0
 
+'''
+     _      _                                _
+    | |    (_)                              | |
+  __| |_ __ ___   _____ _ __    ___ ___   __| | ___
+ / _` | '__| \ \ / / _ \ '__|  / __/ _ \ / _` |/ _ \
+| (_| | |  | |\ V /  __/ |    | (_| (_) | (_| |  __/
+ \__,_|_|  |_| \_/ \___|_|     \___\___/ \__,_|\___|
+'''
+
 # read in our training and testing data sets
 train_rna = read_input('../train/training_set_rna.csv')
 train_adt = read_input('../train/training_set_adt.csv')
@@ -218,7 +219,7 @@ gold_adt  = read_input('../test/test_set_rna.csv')
 
 #> hyper-parameter test case lists
 parameter_0 = ['logarithm', 'clip', 'normalize'] #> pre-process methods
-parameter_1 = [linear_solve] #> solution methods
+parameter_1 = [linear_regression, gradient_descent, nmf] #> solution methods
 
 model = Model()
 
