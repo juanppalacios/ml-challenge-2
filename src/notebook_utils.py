@@ -2,11 +2,19 @@ import csv
 import logging
 import numpy as np
 from itertools import product
+from numba import jit, cuda
 
 # todo: most of these notes are in Lecture 4 Notes
 #> 1. implement cross-validation (Wold's works for NMF)
 #> 1. implement SVD, NMF, gradient_descent
 #> 1. implement pre-processing
+#> 1. post-processing
+
+# note: added this to suppress numba deprecation warnings
+import sys
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore")
 
 '''
  _                   _
@@ -61,9 +69,22 @@ def create_matrix(width, height, data = None):
     return matrix
 
 def preprocess(method, data):
+    debug('pre-processing training and testing data sets...')
     if method == 'logarithm':
         return data
     elif method == 'clip':
+        return data
+    elif method == 'normalize':
+        return data
+    else:
+        error_out(f'\"{method}\" method not recognized!')
+
+def postprocess(method, data):
+    debug('post-processing predicted result...')
+    if method == 'logarithm':
+        return data
+    elif method == 'clip':
+        data['data'] = np.clip(data['data'], a_min=0, a_max=None)
         return data
     elif method == 'normalize':
         return data
@@ -74,24 +95,34 @@ def preprocess(method, data):
 def linear_regression(A0, y0, A1):
     debug(f'implementing linear regression solver...')
 
-    a = A0["data"] @ A0["data"].T
-    b = A0["data"]   @ y0["data"].T
-
+    a = A0['data'].T @ A0['data']
+    b = A0['data'].T @ y0['data']
     x = np.dot(np.linalg.inv(a), b)
 
     y1 = create_matrix(y0['height'], A1['width'])
-    y1['data'] = A0['data'].T @ x
 
-    debug(f'{A0["data"].T.shape} x {x.shape} -> {y0["data"].T.shape} with length {len(y0["data"][0])}')
-    debug(f'{A1["data"].T.shape} x {x.shape} -> {y1["data"].T.shape} with length {len(y1["data"][0])}')
+    y1['data'] = A1['data'] @ x
 
-    return y1
+    debug(f"predicted y1 shape: {y1['data'].shape}")
 
-def gradient_descent(A0, y0, A1):
-    y1 = create_matrix(y0['height'], A1['width'])
     return y1
 
 def nmf(A0, y0, A1):
+
+    '''
+        algorithm
+        1. initialize W (randomly)
+        2. initialize H (zeros)
+        3. alternating least squares
+        4. update H:
+        5. update W:
+        6.
+    '''
+
+    y1 = create_matrix(y0['height'], A1['width'])
+    return y1
+
+def svd(A0, y0, A1):
     y1 = create_matrix(y0['height'], A1['width'])
     return y1
 
@@ -106,7 +137,7 @@ def nmf(A0, y0, A1):
 
 def read_input(path : str):
 
-    data = np.delete(np.genfromtxt(path, delimiter = ',', dtype = float, skip_header = 1), obj = 0, axis = 1)
+    data = np.delete(np.genfromtxt(path, delimiter = ',', dtype = float, skip_header = 1), obj = 0, axis = 1).T
 
     return create_matrix(data.shape[1], data.shape[0], data)
 
@@ -120,7 +151,7 @@ def write_output(path, data):
         writer.writerow(['\"Id\"', '\"Expected\"'])
 
         for i in range(len(data)):
-            writer.writerow([f'\"row_{i + 1}\"', f'{data[i][0]}'])
+            writer.writerow([f'\"ID_{i + 1}\"', f'{data[i][0]}'])
 
 
 '''
@@ -183,6 +214,9 @@ class Model():
 
                 #> solve our multivariate system
                 self.y_test = case[1](self.x_train, self.y_train, self.x_test)
+                
+                #> post-process our prediction
+                self.y_test = postprocess(case[2], self.y_test)
 
                 #> cross-validate our solution
                 self.scores[i] = self.validate()
@@ -197,7 +231,11 @@ class Model():
         return self.y_test
 
     def validate(self):
-        # todo: Wold's method of cross-validation or just regular validation?
+        '''
+            source: http://alexhwilliams.info/itsneuronalblog/2018/02/26/crossval/
+        '''
+        # todo: Wold's method of cross-validation
+        # todo: take a subset of A0, subset of A1
         return 1.0
 
 '''
@@ -219,11 +257,16 @@ gold_adt  = read_input('../test/test_set_rna.csv')
 
 #> hyper-parameter test case lists
 parameter_0 = ['logarithm', 'clip', 'normalize'] #> pre-process methods
-parameter_1 = [linear_regression, gradient_descent, nmf] #> solution methods
+parameter_1 = [linear_regression, nmf, svd] #> solution methods
+parameter_2 = ['normalize'] #> post-process methods
+
+parameter_0 = ['logarithm'] #> pre-process methods
+parameter_1 = [linear_regression] #> solution methods
+parameter_2 = ['clip'] #> post-process methods
 
 model = Model()
 
-model.configure(debug_mode = True, test_cases = [parameter_0, parameter_1])
+model.configure(debug_mode = True, test_cases = [parameter_0, parameter_1, parameter_2])
 
 model.fit(train_rna, train_adt)
 
