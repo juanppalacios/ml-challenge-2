@@ -94,36 +94,43 @@ def postprocess(method, data):
 # @jit(target_backend='cuda')
 def linear_regression(A0, y0, A1):
     debug(f'implementing linear regression solver...')
+    # transpose our data for matrix multiplication
+    A0['data'] = A0['data'].T
+    y0['data'] = y0['data'].T
+    A1['data'] = A1['data'].T
 
-    a = A0['data'].T @ A0['data']
-    b = A0['data'].T @ y0['data']
+    a = np.dot(A0['data'].T, A0['data'])
+    b = np.dot(A0['data'].T, y0['data'])
     x = np.dot(np.linalg.inv(a), b)
 
-    y1 = create_matrix(y0['height'], A1['width'])
+    y1 = create_matrix(y0['width'], A1['height'])
 
-    y1['data'] = A1['data'] @ x
+    y1['data'] = np.dot(A1['data'], x)
 
     debug(f"predicted y1 shape: {y1['data'].shape}")
 
     return y1
 
 def nmf(A0, y0, A1):
+    debug(f'implementing nmf solver...')
 
-    '''
-        algorithm
-        1. initialize W (randomly)
-        2. initialize H (zeros)
-        3. alternating least squares
-        4. update H:
-        5. update W:
-        6.
-    '''
+    # learn the features of A (concat. of A0, y0)
+    A = create_matrix(A0['height'] + y0['height'], A0['width'])
+    A['data'] = np.concatenate((y0['data'],A0['data']), axis = 0)
+    debug(f"our A dimensions {A['data']}")
 
+    max_iterations = 1000
+    curr_iteration = 0
+    tolerance = 1E-3
+    #> how do we determine the best k? cross-validation! -> error vs k x-y plot
+    while (curr_iteration < max_iterations and False):
+        curr_iteration += 1
+
+    # now with our newly found H_test, we can reconstruct y1
     y1 = create_matrix(y0['height'], A1['width'])
-    return y1
 
-def svd(A0, y0, A1):
-    y1 = create_matrix(y0['height'], A1['width'])
+    debug(f"our y1 dimensions {y1['data'].shape}")
+
     return y1
 
 '''
@@ -137,7 +144,7 @@ def svd(A0, y0, A1):
 
 def read_input(path : str):
 
-    data = np.delete(np.genfromtxt(path, delimiter = ',', dtype = float, skip_header = 1), obj = 0, axis = 1).T
+    data = np.delete(np.genfromtxt(path, delimiter = ',', dtype = float, skip_header = 1), obj = 0, axis = 1)
 
     return create_matrix(data.shape[1], data.shape[0], data)
 
@@ -199,8 +206,9 @@ class Model():
 
     def predict(self, x_test, golden_data = None):
         self.x_test = x_test
-        self.y_test = create_matrix(self.x_train['height'], self.x_test['width'])
+        self.y_test = create_matrix(self.x_test['height'], self.y_train['width'])
         if self.debug_mode:
+            info(f'fitted our model with x_test dimensions: {x_test["data"].shape}, y_test dimensions: {self.y_test["data"].shape}')
             if golden_data is None:
                 error_out('running debug mode MUST include golden data!')
 
@@ -214,9 +222,9 @@ class Model():
 
                 #> solve our multivariate system
                 self.y_test = case[1](self.x_train, self.y_train, self.x_test)
-                
+
                 #> post-process our prediction
-                self.y_test = postprocess(case[2], self.y_test)
+                self.y_test = postprocess(case[3], self.y_test)
 
                 #> cross-validate our solution
                 self.scores[i] = self.validate()
@@ -256,17 +264,28 @@ test_rna  = read_input('../test/test_set_rna.csv')
 gold_adt  = read_input('../test/test_set_rna.csv')
 
 #> hyper-parameter test case lists
-parameter_0 = ['logarithm', 'clip', 'normalize'] #> pre-process methods
-parameter_1 = [linear_regression, nmf, svd] #> solution methods
-parameter_2 = ['normalize'] #> post-process methods
+preprocess_methods  = ['logarithm', 'clip', 'normalize'] #> pre-process methods
+prediction_methods  = [linear_regression, nmf] #> solution methods
+nmf_k_values = [1, 10, 100] #> k-values for nmf
+postprocess_methods = ['clip'] #> post-process methods
 
-parameter_0 = ['logarithm'] #> pre-process methods
-parameter_1 = [linear_regression] #> solution methods
-parameter_2 = ['clip'] #> post-process methods
+# using these...
+preprocess_methods  = ['logarithm'] #> pre-process methods
+prediction_methods  = [linear_regression] #> solution methods
+nmf_k_values = [10] #> k-values for nmf
+postprocess_methods = ['clip'] #> post-process methods
 
 model = Model()
 
-model.configure(debug_mode = True, test_cases = [parameter_0, parameter_1, parameter_2])
+model.configure(
+    debug_mode = True,
+    test_cases = [
+        preprocess_methods,
+        prediction_methods,
+        nmf_k_values,
+        postprocess_methods
+        ]
+    )
 
 model.fit(train_rna, train_adt)
 
