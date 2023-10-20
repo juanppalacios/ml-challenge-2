@@ -1,20 +1,7 @@
 import csv
 import logging
 import numpy as np
-from itertools import product
-from numba import jit, cuda
-
-# todo: most of these notes are in Lecture 4 Notes
-#> 1. implement cross-validation (Wold's works for NMF)
-#> 1. implement SVD, NMF, gradient_descent
-#> 1. implement pre-processing
-#> 1. post-processing
-
-# note: added this to suppress numba deprecation warnings
-import sys
-if not sys.warnoptions:
-    import warnings
-    warnings.simplefilter("ignore")
+import matplotlib.pyplot as plt
 
 '''
  _                   _
@@ -41,7 +28,6 @@ def info(message : str):
 def error_out(message : str):
     logger.error(f'error - {message}')
     exit(1)
-
 
 '''
      _       _                                            _
@@ -70,85 +56,36 @@ def create_matrix(width, height, data = None):
 
 def preprocess(method, data):
     debug('pre-processing training and testing data sets...')
-    if method == 'logarithm':
+    if method == 'none':
+        return data
+    elif method == 'logarithm':
+        # data = np.log(data)
         return data
     elif method == 'clip':
         return data
     elif method == 'normalize':
+        minimum, maximum = np.min(data), np.max(data)
+        data = (data - minimum) / (maximum - minimum)
         return data
     else:
         error_out(f'\"{method}\" method not recognized!')
 
 def postprocess(method, data):
     debug('post-processing predicted result...')
-    if method == 'logarithm':
+    if method == 'none':
+        return data
+    elif method == 'logarithm':
+        data = np.log(data)
         return data
     elif method == 'clip':
         data['data'] = np.clip(data['data'], a_min=0, a_max=None)
         return data
     elif method == 'normalize':
+        minimum, maximum = np.min(data), np.max(data)
+        data = (data - minimum) / (maximum - minimum)
         return data
     else:
         error_out(f'\"{method}\" method not recognized!')
-
-# @jit(target_backend='cuda')
-def linear_regression(A0, y0, A1):
-    debug(f'implementing linear regression solver...')
-    # transpose our data for matrix multiplication
-    A0['data'] = A0['data'].T
-    y0['data'] = y0['data'].T
-    A1['data'] = A1['data'].T
-
-    a = np.dot(A0['data'].T, A0['data'])
-    b = np.dot(A0['data'].T, y0['data'])
-    x = np.dot(np.linalg.inv(a), b)
-
-    y1 = create_matrix(y0['width'], A1['height'])
-
-    y1['data'] = np.dot(A1['data'], x)
-
-    debug(f"predicted y1 shape: {y1['data'].shape}")
-
-    return y1
-
-def multivariate_regression(A0, y0, A1):
-    debug(f'implementing multivariate regression solver...')
-    A0['data'] = A0['data'].T
-    y0['data'] = y0['data'].T
-    A1['data'] = A1['data'].T
-
-    #> Add bias term (column of ones) to X
-    X_bias = np.c_[np.ones(A0['width']), A0['data']]
-
-    #> Calculate beta using the normal equation
-    beta = np.linalg.inv(X_bias.T.dot(X_bias)).dot(X_bias.T).dot(y0['data'])
-
-    y1 = create_matrix(y0['width'], A1['height'])
-    y1['data'] = X_bias.dot(beta)
-
-    return y1
-
-def nmf(A0, y0, A1):
-    debug(f'implementing nmf solver...')
-
-    # learn the features of A (concat. of A0, y0)
-    A = create_matrix(A0['height'] + y0['height'], A0['width'])
-    A['data'] = np.concatenate((y0['data'],A0['data']), axis = 0)
-    debug(f"our A dimensions {A['data']}")
-
-    max_iterations = 1000
-    curr_iteration = 0
-    tolerance = 1E-3
-    #> how do we determine the best k? cross-validation! -> error vs k x-y plot
-    while (curr_iteration < max_iterations and False):
-        curr_iteration += 1
-
-    # now with our newly found H_test, we can reconstruct y1
-    y1 = create_matrix(y0['height'], A1['width'])
-
-    debug(f"our y1 dimensions {y1['data'].shape}")
-
-    return y1
 
 '''
                     _     __             _ _
@@ -159,14 +96,33 @@ def nmf(A0, y0, A1):
 |_|  \___|\__,_|\__,_/_/    \_/\_/ |_|  |_|\__\___|
 '''
 
-def read_input(path : str):
+def read_input(path : str, trim_header = False):
 
-    data = np.delete(np.genfromtxt(path, delimiter = ',', dtype = float, skip_header = 1), obj = 0, axis = 1)
+    if trim_header:
+        data = np.delete(np.genfromtxt(path, delimiter = ',', dtype = float, skip_header = 1), obj = 0, axis = 1)
+    else:
+        data = np.genfromtxt(path, delimiter = ',', dtype = float)
 
-    return create_matrix(data.shape[1], data.shape[0], data)
+    data = create_matrix(data.shape[1], data.shape[0], data)
+
+    # print(f"checking how our data unravels: {data['data'].shape}\n{data['data']}")
+
+    return data
+
+def visualize(path : str, x_train, y_train):
+    plt.figure()
+
+    plt.imshow(y_train['data'], cmap='viridis', alpha=0.5)
+    plt.colorbar()
+
+    plt.imshow(x_train['data'], cmap='plasma', alpha=0.5)
+
+    plt.savefig(path, format='png', dpi=300)  # Specify the file name, format, and dpi
 
 def write_output(path, data):
-    data = np.transpose(data)
+    data = data['data']
+
+    # data = np.transpose(data)
     data = data.flatten('C')
     data = np.atleast_2d(data).T
 
@@ -176,136 +132,3 @@ def write_output(path, data):
 
         for i in range(len(data)):
             writer.writerow([f'\"ID_{i + 1}\"', f'{data[i][0]}'])
-
-
-'''
-                    _ _      _                                   _      _
-                   | (_)    | |                                 | |    | |
- _ __  _ __ ___  __| |_  ___| |_ ___  _ __   _ __ ___   ___   __| | ___| |
-| '_ \| '__/ _ \/ _` | |/ __| __/ _ \| '__| | '_ ` _ \ / _ \ / _` |/ _ \ |
-| |_) | | |  __/ (_| | | (__| || (_) | |    | | | | | | (_) | (_| |  __/ |
-| .__/|_|  \___|\__,_|_|\___|\__\___/|_|    |_| |_| |_|\___/ \__,_|\___|_|
-| |
-|_|
-'''
-
-class Model():
-    def __init__(self):
-        self.debug_mode = False
-
-        self.test_cases = []
-        self.scores     = []
-
-        self.x_train = None
-        self.y_train = None
-        self.x_test  = None
-        self.y_test  = None  # note: we return this in our predict method
-
-    def configure(self, debug_mode = False, test_cases = []):
-        self.debug_mode = debug_mode
-
-        if self.debug_mode:
-            configure_logging(logging.DEBUG)
-        else:
-            configure_logging(logging.INFO)
-
-        debug('running in DEBUG mode')
-
-        self.test_cases = [list(case) for case in product(*test_cases)]
-        self.scores     = [0.0 for _ in range(len(self.test_cases))]
-
-    def fit(self, x_train, y_train):
-        self.x_train = x_train
-        self.y_train = y_train
-
-        if self.debug_mode:
-            info(f'fitted our model with x_train dimensions: {x_train["data"].shape}, y_train dimensions: {y_train["data"].shape}')
-
-    def predict(self, x_test, golden_data = None):
-        self.x_test = x_test
-        self.y_test = create_matrix(self.x_test['height'], self.y_train['width'])
-        if self.debug_mode:
-            info(f'fitted our model with x_test dimensions: {x_test["data"].shape}, y_test dimensions: {self.y_test["data"].shape}')
-            if golden_data is None:
-                error_out('running debug mode MUST include golden data!')
-
-            for i, case in enumerate(self.test_cases):
-                info(f'running case {case}')
-
-                #> pre-process our data
-                self.x_train = preprocess(case[0], self.x_train)
-                self.y_train = preprocess(case[0], self.y_train)
-                self.x_test  = preprocess(case[0], self.x_test)
-
-                #> solve our multivariate system
-                self.y_test = case[1](self.x_train, self.y_train, self.x_test)
-
-                #> post-process our prediction
-                self.y_test = postprocess(case[3], self.y_test)
-
-                #> cross-validate our solution
-                self.scores[i] = self.validate()
-                info(f'case score: {self.scores[i]}')
-
-            info(f'highest score: {self.scores[np.argmax(self.scores)]} ran with {self.test_cases[np.argmax(self.scores)]}')
-        else:
-            for i, case in enumerate(self.test_cases):
-                info(f'running case {case}')
-                self.y_test = case[1](self.x_train, self.y_train, self.x_test)
-
-        return self.y_test
-
-    def validate(self):
-        '''
-            source: http://alexhwilliams.info/itsneuronalblog/2018/02/26/crossval/
-        '''
-        # todo: Wold's method of cross-validation
-        # todo: take a subset of A0, subset of A1
-        return 1.0
-
-'''
-     _      _                                _
-    | |    (_)                              | |
-  __| |_ __ ___   _____ _ __    ___ ___   __| | ___
- / _` | '__| \ \ / / _ \ '__|  / __/ _ \ / _` |/ _ \
-| (_| | |  | |\ V /  __/ |    | (_| (_) | (_| |  __/
- \__,_|_|  |_| \_/ \___|_|     \___\___/ \__,_|\___|
-'''
-
-# read in our training and testing data sets
-train_rna = read_input('../train/training_set_rna.csv')
-train_adt = read_input('../train/training_set_adt.csv')
-test_rna  = read_input('../test/test_set_rna.csv')
-
-# note: use only with DEBUG_MODE
-gold_adt  = read_input('../test/test_set_rna.csv')
-
-#> hyper-parameter test case lists
-preprocess_methods  = ['logarithm', 'clip', 'normalize'] #> pre-process methods
-prediction_methods  = [linear_regression, nmf] #> solution methods
-nmf_k_values = [1, 10, 100] #> k-values for nmf
-postprocess_methods = ['clip'] #> post-process methods
-
-# using these...
-preprocess_methods  = ['logarithm'] #> pre-process methods
-prediction_methods  = [multivariate_regression] #> solution methods
-nmf_k_values = [10] #> k-values for nmf
-postprocess_methods = ['clip'] #> post-process methods
-
-model = Model()
-
-model.configure(
-    debug_mode = True,
-    test_cases = [
-        preprocess_methods,
-        prediction_methods,
-        nmf_k_values,
-        postprocess_methods
-        ]
-    )
-
-model.fit(train_rna, train_adt)
-
-test_adt = model.predict(test_rna, gold_adt)
-
-write_output('../out/debug/kaggle_challenge_2.csv', test_adt['data'])

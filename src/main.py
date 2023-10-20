@@ -1,38 +1,58 @@
-
-import time
-import numpy as np
-from numba import jit, cuda
-
-from rich.progress import track
-from notebook_utils import *
+from notebook_utils  import *
+from predictor_model import *
 
 '''
-     _      _                                _
-    | |    (_)                              | |
-  __| |_ __ ___   _____ _ __    ___ ___   __| | ___
- / _` | '__| \ \ / / _ \ '__|  / __/ _ \ / _` |/ _ \
-| (_| | |  | |\ V /  __/ |    | (_| (_) | (_| |  __/
- \__,_|_|  |_| \_/ \___|_|     \___\___/ \__,_|\___|
+                                        _      _
+                                       | |    | |
+ _ __ _   _ _ __    _ __ ___   ___   __| | ___| |
+| '__| | | | '_ \  | '_ ` _ \ / _ \ / _` |/ _ \ |
+| |  | |_| | | | | | | | | | | (_) | (_| |  __/ |
+|_|   \__,_|_| |_| |_| |_| |_|\___/ \__,_|\___|_|
 '''
 
-# read in our training and testing data sets
-train_rna = read_input('../train/training_set_rna.csv')
-train_adt = read_input('../train/training_set_adt.csv')
-test_rna  = read_input('../test/test_set_rna.csv')
+DEBUG_MODE = True
 
-# note: use only with DEBUG_MODE
-gold_adt  = read_input('../test/test_set_rna.csv')
+if DEBUG_MODE:
+    # note: select which cross-validation data set to run
+    select_set = 0
 
-#> hyper-parameter test case lists
-parameter_0 = ['logarithm', 'clip', 'normalize'] #> pre-process methods
-parameter_1 = [linear_regression, gradient_descent, nmf] #> solution methods
+    # note: read in our cross-validation training and testing data sets
+    train_rna = read_input(f'../train/cv_train_rna/cv_training_set_rna_{select_set}.csv', trim_header = False)
+    train_adt = read_input(f'../train/cv_train_adt/cv_training_set_adt_{select_set}.csv', trim_header = False)
+    test_rna  = read_input(f'../test/cv_test_rna/cv_test_set_rna_{select_set}.csv', trim_header = False)
+
+    # note: use only with DEBUG_MODE
+    gold_adt  = read_input(f'../test/cv_golden_adt/cv_golden_set_adt_{select_set}.csv', trim_header = False)
+
+    # note: debugging with these...
+    preprocess_methods  = ['none'] #> pre-process methods
+    prediction_methods  = [linear_regression] #> solution methods
+    postprocess_methods = ['clip'] #> post-process methods
+
+else:
+    #> read in our training and testing data sets
+    train_rna = read_input('../train/training_set_rna.csv', trim_header = True)
+    train_adt = read_input('../train/training_set_adt.csv', trim_header = True)
+    test_rna  = read_input('../test/test_set_rna.csv', trim_header = True)
+
+    gold_adt = None
+
+    #> visualizing our input data
+    visualize('../train/training_data.png', train_rna, train_adt)
+
+    #> hyper-parameter test case lists
+    preprocess_methods  = ['none'] #> pre-process methods
+    prediction_methods  = [linear_regression] #> solution methods
+    postprocess_methods = ['clip'] #> post-process methods
+
+#> run our model...
 
 model = Model()
 
-model.configure(debug_mode = True, test_cases = [parameter_0, parameter_1])
+model.configure(debug_mode = DEBUG_MODE, test_cases = [preprocess_methods, prediction_methods, postprocess_methods])
 
 model.fit(train_rna, train_adt)
 
 test_adt = model.predict(test_rna, gold_adt)
 
-write_output('../out/debug/kaggle_challenge_2.csv', test_adt['data'])
+write_output('../out/debug/test_set_adt.csv', test_adt)
