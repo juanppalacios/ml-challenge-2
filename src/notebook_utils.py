@@ -111,6 +111,23 @@ def linear_regression(A0, y0, A1):
 
     return y1
 
+def multivariate_regression(A0, y0, A1):
+    debug(f'implementing multivariate regression solver...')
+    A0['data'] = A0['data'].T
+    y0['data'] = y0['data'].T
+    A1['data'] = A1['data'].T
+
+    #> Add bias term (column of ones) to X
+    X_bias = np.c_[np.ones(A0['width']), A0['data']]
+
+    #> Calculate beta using the normal equation
+    beta = np.linalg.inv(X_bias.T.dot(X_bias)).dot(X_bias.T).dot(y0['data'])
+
+    y1 = create_matrix(y0['width'], A1['height'])
+    y1['data'] = X_bias.dot(beta)
+
+    return y1
+
 def nmf(A0, y0, A1):
     debug(f'implementing nmf solver...')
 
@@ -271,7 +288,7 @@ postprocess_methods = ['clip'] #> post-process methods
 
 # using these...
 preprocess_methods  = ['logarithm'] #> pre-process methods
-prediction_methods  = [linear_regression] #> solution methods
+prediction_methods  = [multivariate_regression] #> solution methods
 nmf_k_values = [10] #> k-values for nmf
 postprocess_methods = ['clip'] #> post-process methods
 
