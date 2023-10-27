@@ -55,7 +55,7 @@ def create_matrix(width, height, data = None):
     return matrix
 
 def preprocess(method, data):
-    debug('pre-processing training and testing data sets...')
+    # debug('pre-processing training and testing data sets...')
     if method == 'none':
         return data
     elif method == 'logarithm':
@@ -71,7 +71,7 @@ def preprocess(method, data):
         error_out(f'\"{method}\" method not recognized!')
 
 def postprocess(method, data):
-    debug('post-processing predicted result...')
+    # debug('post-processing predicted result...')
     if method == 'none':
         return data
     elif method == 'logarithm':

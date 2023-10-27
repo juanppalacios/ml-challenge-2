@@ -38,7 +38,25 @@ else:
 #> hyper-parameter test case lists
 preprocess_methods  = ['none'] #> pre-process methods
 prediction_methods  = [
-    [linear_regression, None],
+    # [linear_regression, None],
+    
+    # #> varying our learning rate
+    # [multivariate_regression, [2100, 0.99]],
+    # [multivariate_regression, [2100, 0.099]],
+    # [multivariate_regression, [2100, 0.0099]],
+    # [multivariate_regression, [2100, 0.00099]],
+    # [multivariate_regression, [2100, 0.000099]],
+    # [multivariate_regression, [2100, 0.0000099]],
+    # [multivariate_regression, [2100, 0.00000099]],
+    # [multivariate_regression, [2100, 0.000000099]],
+    # [multivariate_regression, [2100, 0.0000000099]],
+    # [multivariate_regression, [2100, 0.00000000099]],
+    # [multivariate_regression, [2100, 0.000000000099]],
+    # [multivariate_regression, [2100, 0.0000000000099]],
+    # [multivariate_regression, [2100, 0.00000000000099]],
+    # [multivariate_regression, [2100, 0.000000000000099]],
+    # [multivariate_regression, [2100, 0.0000000000000099]],
+    # [multivariate_regression, [2100, 0.00000000000000099]]
 
     #> varying our iterations
     [multivariate_regression, [1500, 0.00099]],
@@ -50,6 +68,13 @@ prediction_methods  = [
     [multivariate_regression, [2100, 0.00099]],
     [multivariate_regression, [2200, 0.00099]],
     [multivariate_regression, [2300, 0.00099]],
+    [multivariate_regression, [2400, 0.00099]],
+    [multivariate_regression, [2500, 0.00099]],
+    [multivariate_regression, [2600, 0.00099]],
+    [multivariate_regression, [2700, 0.00099]],
+    [multivariate_regression, [2800, 0.00099]],
+    [multivariate_regression, [2900, 0.00099]],
+    [multivariate_regression, [3000, 0.00099]]
 ]
 postprocess_methods = ['clip'] #> post-process methods
 

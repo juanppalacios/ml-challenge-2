@@ -3,6 +3,7 @@ from itertools import product
 from notebook_utils import *
 from rich.progress import track
 from numba import jit, cuda
+import matplotlib.pyplot as plt
 
 
 '''
@@ -37,6 +38,7 @@ def linear_regression(A0, y0, A1, learning_rates = None):
 
     return y1
 
+# @jit(target_backend='cuda')
 def multivariate_regression(A0, y0, A1, learning_rates):
     debug(f'implementing multivariate regression solver...')
 
@@ -52,7 +54,7 @@ def multivariate_regression(A0, y0, A1, learning_rates):
     max_iterations = learning_rates[0]
     learning_rate  = learning_rates[1]
 
-    # @jit(target_backend='cuda')
+    @jit(target_backend='cuda')
     def gradient_descent(A0, y0, learning_rate, iterations):
         m, n  = A0.shape
         theta = np.zeros(n)
@@ -126,6 +128,7 @@ class Model():
         self.x_test   = x_test
         self.y_golden = y_golden
         self.y_test   = [create_matrix(self.y_train['height'], self.x_test['width']) for _ in range(len(self.parameters))]
+        iterations    = [0 for _ in range(len(self.parameters))]
 
         if self.debug_mode:
             info(f'fitted our model with x_test dimensions: {self.x_test["data"].shape}, y_test dimensions: {self.y_test[0]["data"].shape}')
@@ -137,24 +140,36 @@ class Model():
             #> run through all of our hyper-parameter lists, resets each iteration
             for i, parameter in enumerate(self.parameters):
                 info(f'running parameter {parameter}')
+                iterations[i] = parameter[1][1][0]
 
                 #> pre-process our data
+                debug('pre-processing training and testing data sets...')
                 self.x_train = preprocess(parameter[0], self.x_train)
                 self.y_train = preprocess(parameter[0], self.y_train)
                 self.x_test  = preprocess(parameter[0], self.x_test)
 
                 #> solve our multivariate system
-                debug(f'parameter[1][0] -> {parameter[1][0]}')
-                debug(f'parameter[1][1] -> {parameter[1][1]}')
-
                 self.y_test[i] = parameter[1][0](self.x_train, self.y_train, self.x_test, parameter[1][1])
 
                 #> post-process our prediction
+                debug('post-processing predicted result...')
                 self.y_test[i] = postprocess(parameter[2], self.y_test[i])
 
                 #> cross-validate our solution
                 self.scores[i] = self.validate(i)
                 info(f'parameter score: {self.scores[i]}')
+
+            #> visualize our trend line
+            plt.plot(iterations, self.scores, marker = 'o', linestyle = '-')
+            # plt.ylim(0.60, 0.90)
+
+            #> Add labels and title
+            plt.xlabel('Iterations')
+            plt.ylabel('Test Scores')
+            plt.title('Test Scores vs. Iterations')
+
+            #> Save plot to out folder
+            plt.savefig('../out/performance.png')
 
             info(f'highest score: {self.scores[np.argmax(self.scores)]} ran with {self.parameters[np.argmax(self.scores)]}')
             return self.y_test[np.argmax(self.scores)]
