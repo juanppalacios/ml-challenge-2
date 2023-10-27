@@ -24,11 +24,6 @@ if DEBUG_MODE:
     # note: use only with DEBUG_MODE
     gold_adt  = read_input(f'../test/cv_golden_adt/cv_golden_set_adt_{select_set}.csv', trim_header = False)
 
-    # note: debugging with these...
-    preprocess_methods  = ['none'] #> pre-process methods
-    prediction_methods  = [linear_regression] #> solution methods
-    postprocess_methods = ['clip'] #> post-process methods
-
 else:
     #> read in our training and testing data sets
     train_rna = read_input('../train/training_set_rna.csv', trim_header = True)
@@ -40,16 +35,29 @@ else:
     #> visualizing our input data
     visualize('../train/training_data.png', train_rna, train_adt)
 
-    #> hyper-parameter test case lists
-    preprocess_methods  = ['none'] #> pre-process methods
-    prediction_methods  = [linear_regression] #> solution methods
-    postprocess_methods = ['clip'] #> post-process methods
+#> hyper-parameter test case lists
+preprocess_methods  = ['none'] #> pre-process methods
+prediction_methods  = [
+    [linear_regression, None],
+
+    #> varying our iterations
+    [multivariate_regression, [1500, 0.00099]],
+    [multivariate_regression, [1600, 0.00099]],
+    [multivariate_regression, [1700, 0.00099]],
+    [multivariate_regression, [1800, 0.00099]],
+    [multivariate_regression, [1900, 0.00099]],
+    [multivariate_regression, [2000, 0.00099]],
+    [multivariate_regression, [2100, 0.00099]],
+    [multivariate_regression, [2200, 0.00099]],
+    [multivariate_regression, [2300, 0.00099]],
+]
+postprocess_methods = ['clip'] #> post-process methods
 
 #> run our model...
 
 model = Model()
 
-model.configure(debug_mode = DEBUG_MODE, test_cases = [preprocess_methods, prediction_methods, postprocess_methods])
+model.configure(debug_mode = DEBUG_MODE, parameters = [preprocess_methods, prediction_methods, postprocess_methods])
 
 model.fit(train_rna, train_adt)
 
